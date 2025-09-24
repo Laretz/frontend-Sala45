@@ -36,6 +36,9 @@ export default function MeetingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login");
@@ -249,6 +252,7 @@ export default function MeetingsPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* calendario */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Data</Label>
                     <Popover>
@@ -269,7 +273,7 @@ export default function MeetingsPage() {
                           mode="single"
                           selected={selectedDate}
                           onSelect={handleDateChange}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => date < today}
                           initialFocus
                         />
                       </PopoverContent>
