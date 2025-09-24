@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isSameDay } from 'date-fns';
 
 export default function RoomsPage() {
   const { isAuthenticated } = useAuth();
@@ -62,7 +63,8 @@ export default function RoomsPage() {
   const loadRoomMeetings = async (roomId: string, date: Date) => {
     setLoadingMeetings(true);
     try {
-      const dateStr = format(date, 'yyyy-MM-dd');
+      // const dateStr = format(date, 'yyyy-MM-dd');
+      const dateStr = date.toISOString(); // Ex: "2025-09-25T03:00:00.000Z"
       const response = await api.getRoomMeetings(roomId, dateStr);
       if (response.data && !response.error) {
         setRoomMeetings(response.data);
@@ -77,26 +79,49 @@ export default function RoomsPage() {
     }
   };
 
+  // const generateTimeSlots = () => {
+  //   const slots = [];
+  //   for (let hour = 8; hour <= 17; hour++) {
+  //     const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+  //     const isOccupied = roomMeetings.some(meeting => {
+  //       const meetingStart = new Date(meeting.startTime);
+  //       const meetingHour = meetingStart.getHours();
+  //       return meetingHour === hour;
+  //     });
+      
+  //     const occupiedMeeting = roomMeetings.find(meeting => {
+  //       const meetingStart = new Date(meeting.startTime);
+  //       const meetingHour = meetingStart.getHours();
+  //       return meetingHour === hour;
+  //     });
+      
+  //     slots.push({
+  //       time: timeStr,
+  //       isOccupied,
+  //       meeting: occupiedMeeting
+  //     });
+  //   }
+  //   return slots;
+  // };
+
   const generateTimeSlots = () => {
     const slots = [];
+    
+    if (!selectedDate) return [];
+
     for (let hour = 8; hour <= 17; hour++) {
       const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      const isOccupied = roomMeetings.some(meeting => {
-        const meetingStart = new Date(meeting.startTime);
-        const meetingHour = meetingStart.getHours();
-        return meetingHour === hour;
-      });
       
       const occupiedMeeting = roomMeetings.find(meeting => {
         const meetingStart = new Date(meeting.startTime);
-        const meetingHour = meetingStart.getHours();
-        return meetingHour === hour;
+        
+        return isSameDay(meetingStart, selectedDate) && meetingStart.getHours() === hour;
       });
       
       slots.push({
         time: timeStr,
-        isOccupied,
-        meeting: occupiedMeeting
+        isOccupied: !!occupiedMeeting, 
+        meeting: occupiedMeeting      
       });
     }
     return slots;
