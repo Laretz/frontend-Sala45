@@ -1,3 +1,5 @@
+import { Meeting, Room, CreateMeetingData, CreateRoomData  } from '@/types/index';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T = any> {
@@ -42,19 +44,16 @@ class ApiClient {
 
       if (!response.ok) {
         return {
-          error: data.error || 'Erro na requisição',
-          data: null,
+          error: data.error || 'Erro na requisição'
         };
       }
 
       return {
-        data,
-        error: null,
+        data
       };
     } catch (error) {
       return {
-        error: 'Erro de conexão com o servidor',
-        data: null,
+        error: 'Erro de conexão com o servidor'
       };
     }
   }
@@ -79,11 +78,11 @@ class ApiClient {
   }
 
   // Métodos para reservas
-  async getMeetings() {
+  async getMeetings(): Promise<ApiResponse<Meeting[]>> {
     return this.request('/meetings');
   }
 
-  async createMeeting(meetingData: any) {
+  async createMeeting(meetingData: CreateMeetingData): Promise<ApiResponse<Meeting>> {
     return this.request('/meetings', {
       method: 'POST',
       body: JSON.stringify(meetingData),
@@ -104,15 +103,15 @@ class ApiClient {
   }
 
   // Métodos para salas
-  async getRooms() {
+  async getRooms(): Promise<ApiResponse<Room[]>> {
     return this.request('/rooms');
   }
 
-  async getRoomMeetings(roomId: string, date: string) {
+  async getRoomMeetings(roomId: string, date: string): Promise<ApiResponse<Meeting[]>> {
     return this.request(`/rooms/${roomId}/meetings/${date}`);
   }
 
-  async createRoom(roomData: any) {
+  async createRoom(roomData: CreateRoomData): Promise<ApiResponse<Room>> {
     return this.request('/rooms', {
       method: 'POST',
       body: JSON.stringify(roomData),
@@ -126,8 +125,8 @@ class ApiClient {
     });
   }
 
-  async deleteRoom(id: string) {
-    return this.request(`/rooms/${id}`, {
+  async deleteRoom(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/rooms/${id}`, {
       method: 'DELETE',
     });
   }

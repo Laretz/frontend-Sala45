@@ -148,7 +148,7 @@ export default function RoomsPage() {
 
     try {
       const response = await api.createRoom(formData);
-      if (response.success && response.data) {
+      if (response.data && !response.error) {
         setRooms([...rooms, response.data]);
         setFormData({
           name: "",
@@ -174,7 +174,7 @@ export default function RoomsPage() {
 
     try {
       const response = await api.deleteRoom(roomId);
-      if (response.success) {
+      if (!response.error) {
         setRooms(rooms.filter(r => r.id !== roomId));
       } else {
         setError(response.error || "Erro ao excluir sala");
