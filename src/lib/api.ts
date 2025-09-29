@@ -1,4 +1,4 @@
-import { Meeting, Room, CreateMeetingData, CreateRoomData  } from '@/types/index';
+import { Meeting, Room, CreateMeetingData, CreateRoomData, User } from '@/types/index';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -73,8 +73,8 @@ class ApiClient {
     });
   }
 
-  async getMe() {
-    return this.request('/auth/me');
+  async getMe(): Promise<ApiResponse<User>> {
+    return this.request<User>('/auth/me');
   }
 
   // Métodos para reservas
@@ -128,6 +128,18 @@ class ApiClient {
   async deleteRoom(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/rooms/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Métodos para aprovação de reuniões
+  async getPendingMeetings(): Promise<ApiResponse<Meeting[]>> {
+    return this.request('/meetings/pending');
+  }
+
+  async approveMeeting(id: string, action: 'APPROVED' | 'REJECTED'): Promise<ApiResponse<Meeting>> {
+    return this.request(`/meetings/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ action }),
     });
   }
 }

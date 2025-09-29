@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { isSameDay } from 'date-fns';
 
 export default function RoomsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, user, isHydrated } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -37,14 +37,35 @@ export default function RoomsPage() {
   const [loadingMeetings, setLoadingMeetings] = useState(false);
   const router = useRouter();
 
+  console.log("RoomsPage - Estado de autenticação:", {
+    authLoading,
+    isAuthenticated,
+    user: user?.name,
+    isHydrated
+  });
+
   useEffect(() => {
+    // Aguardar o carregamento do contexto de autenticação
+    if (authLoading || !isHydrated) {
+      console.log("RoomsPage - Aguardando contexto de autenticação...");
+      return;
+    }
+
     if (!isAuthenticated) {
+      console.log("RoomsPage - Usuário não autenticado, redirecionando...");
       router.push("/login");
       return;
     }
-    
+
+    // Aguardar o carregamento do usuário
+    if (!user) {
+      console.log("RoomsPage - Aguardando dados do usuário...");
+      return;
+    }
+
+    console.log("RoomsPage - Carregando salas...");
     loadRooms();
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, user, isHydrated, router]);
 
   const loadRooms = async () => {
     try {
@@ -109,20 +130,29 @@ export default function RoomsPage() {
     
     if (!selectedDate) return [];
 
+    // Gerar slots de 30 em 30 minutos das 8:00 às 18:00
     for (let hour = 8; hour <= 17; hour++) {
-      const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      
-      const occupiedMeeting = roomMeetings.find(meeting => {
-        const meetingStart = new Date(meeting.startTime);
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         
-        return isSameDay(meetingStart, selectedDate) && meetingStart.getHours() === hour;
-      });
-      
-      slots.push({
-        time: timeStr,
-        isOccupied: !!occupiedMeeting, 
-        meeting: occupiedMeeting      
-      });
+        // Verifica se há uma reunião que ocupa este horário
+        const occupiedMeeting = roomMeetings.find(meeting => {
+          const meetingStart = new Date(meeting.startTime);
+          const meetingEnd = new Date(meeting.endTime);
+          const currentSlot = new Date(selectedDate);
+          currentSlot.setHours(hour, minute, 0, 0);
+          
+          return isSameDay(meetingStart, selectedDate) && 
+                 meetingStart <= currentSlot && 
+                 meetingEnd > currentSlot;
+        });
+        
+        slots.push({
+          time: timeStr,
+          isOccupied: !!occupiedMeeting, 
+          meeting: occupiedMeeting      
+        });
+      }
     }
     return slots;
   };
@@ -184,7 +214,19 @@ export default function RoomsPage() {
     }
   };
 
-  if (!isAuthenticated) {
+  // Aguardar carregamento do contexto de autenticação
+  if (authLoading || !isHydrated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     return null;
   }
 
@@ -442,12 +484,12 @@ export default function RoomsPage() {
               ) : (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Horários do Dia</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                     {generateTimeSlots().map((slot) => (
                       <div
                         key={slot.time}
                         className={cn(
-                          "p-3 rounded-lg border text-center transition-colors",
+                          "p-2 rounded-lg border text-center transition-colors",
                           slot.isOccupied
                             ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300"
                             : "bg-green-50 border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-300"
@@ -458,9 +500,16 @@ export default function RoomsPage() {
                           {slot.isOccupied ? "Ocupado" : "Livre"}
                         </div>
                         {slot.meeting && (
-                          <div className="text-xs mt-1 truncate" title={slot.meeting.title}>
-                            {slot.meeting.title}
-                          </div>
+                          <>
+                            <div className="text-xs mt-1 truncate" title={slot.meeting.title}>
+                              {slot.meeting.title}
+                            </div>
+                            {slot.meeting.user && (
+                              <div className="text-xs mt-1 truncate font-medium" title={slot.meeting.user.name}>
+                                {slot.meeting.user.name}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}

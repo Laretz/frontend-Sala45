@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  role: 'USER' | 'RH' | 'ADMIN';
   createdAt: string;
 }
 
@@ -17,6 +18,8 @@ export interface Meeting {
   description?: string;
   startTime: string;
   endTime: string;
+  duration: number; // Duração em minutos
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   roomId: string;
   userId: string;
   createdAt: string;
@@ -41,6 +44,7 @@ export interface CreateMeetingData {
   description?: string;
   startTime: string;
   endTime: string;
+  duration: number; // Duração em minutos (30, 60, 120)
   roomId: string;
 }
 

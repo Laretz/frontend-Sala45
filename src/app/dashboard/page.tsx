@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
 import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
@@ -11,26 +17,42 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, isHydrated } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    console.log("🏠 Dashboard - Estado auth:", { authLoading, isAuthenticated, isHydrated, user: !!user });
+    
+    // Aguardar o carregamento do contexto de autenticação E a hidratação
+    if (authLoading || !isHydrated) {
+      console.log("⏳ Dashboard - Aguardando carregamento da autenticação...");
+      return;
+    }
+
     if (!isAuthenticated) {
+      console.log("❌ Dashboard - Não autenticado, redirecionando...");
       router.push("/login");
       return;
     }
-    
+
+    // Aguardar o carregamento do usuário
+    if (!user) {
+      console.log("⏳ Dashboard - Aguardando dados do usuário...");
+      return;
+    }
+
+    console.log("✅ Dashboard - Carregando dados...");
     loadData();
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, isHydrated, user, router]);
 
   const loadData = async () => {
     try {
       const [meetingsResponse, roomsResponse] = await Promise.all([
         api.getMeetings(),
-        api.getRooms()
+        api.getRooms(),
       ]);
 
       if (meetingsResponse.data) {
@@ -51,33 +73,39 @@ export default function DashboardPage() {
     return null;
   }
 
-  const todayMeetings = meetings.filter(meeting => {
+  const todayMeetings = meetings.filter((meeting) => {
     const meetingDate = new Date(meeting.startTime);
     const today = new Date();
     return meetingDate.toDateString() === today.toDateString();
   });
 
-  const upcomingMeetings = meetings.filter(meeting => {
-    const meetingDate = new Date(meeting.startTime);
-    const now = new Date();
-    return meetingDate > now;
-  }).slice(0, 5);
+  const upcomingMeetings = meetings
+    .filter((meeting) => {
+      const meetingDate = new Date(meeting.startTime);
+      const now = new Date();
+      return meetingDate > now;
+    })
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-4 sm:py-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Bem-vindo de volta, {user?.name}!</p>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
+            Bem-vindo de volta, {user?.name}!
+          </p>
         </div>
 
         {/* Estatísticas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Reservas Hoje</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Reservas Hoje
+              </CardTitle>
               <svg
                 className="h-4 w-4 text-muted-foreground"
                 fill="none"
@@ -102,7 +130,9 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Reservas</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total de Reservas
+              </CardTitle>
               <svg
                 className="h-4 w-4 text-muted-foreground"
                 fill="none"
@@ -127,7 +157,9 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Salas Disponíveis</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Salas Disponíveis
+              </CardTitle>
               <svg
                 className="h-4 w-4 text-muted-foreground"
                 fill="none"
@@ -166,11 +198,16 @@ export default function DashboardPage() {
               ) : upcomingMeetings.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingMeetings.map((meeting) => (
-                    <div key={meeting.id} className="flex items-center space-x-3 sm:space-x-4 p-3 border rounded-lg">
+                    <div
+                      key={meeting.id}
+                      className="flex items-center space-x-3 sm:space-x-4 p-3 border rounded-lg"
+                    >
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium break-words">{meeting.title}</h4>
+                        <h4 className="font-medium break-words">
+                          {meeting.title}
+                        </h4>
                         <p className="text-sm text-muted-foreground break-all">
-                          {new Date(meeting.startTime).toLocaleString('pt-BR')}
+                          {new Date(meeting.startTime).toLocaleString("pt-BR")}
                         </p>
                         {meeting.room && (
                           <p className="text-xs text-muted-foreground break-words">
@@ -188,7 +225,9 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-muted-foreground mb-4">Nenhuma reserva próxima</p>
+                  <p className="text-muted-foreground mb-4">
+                    Nenhuma reserva próxima
+                  </p>
                   <Link href="/meetings">
                     <Button>Criar Reserva</Button>
                   </Link>
@@ -225,7 +264,7 @@ export default function DashboardPage() {
                     Nova Reserva
                   </Button>
                 </Link>
-                
+
                 <Link href="/rooms">
                   <Button className="w-full justify-start" variant="outline">
                     <svg
@@ -244,7 +283,7 @@ export default function DashboardPage() {
                     Gerenciar Salas
                   </Button>
                 </Link>
-                
+
                 <Link href="/meetings">
                   <Button className="w-full justify-start" variant="outline">
                     <svg
@@ -263,6 +302,28 @@ export default function DashboardPage() {
                     Ver Calendário
                   </Button>
                 </Link>
+
+                {/* Botão de aprovação - apenas para RH/ADMIN */}
+                {(user?.role === "RH" || user?.role === "ADMIN") && (
+                  <Link href="/approvals">
+                    <Button className="w-full justify-start" variant="outline">
+                      <svg
+                        className="mr-2 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Aprovar Reuniões
+                    </Button>
+                  </Link>
+                )}
               </div>
             </CardContent>
           </Card>

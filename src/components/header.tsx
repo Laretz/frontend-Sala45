@@ -5,9 +5,14 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/contexts/theme-context";
+import { useEffect } from "react";
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout, isHydrated } = useAuth();
+  
+  // Condição para mostrar aprovações
+  const showApprovals = isHydrated && !loading && user && (user.role === 'RH' || user.role === 'ADMIN');
+
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -42,6 +47,15 @@ export function Header() {
             >
               Salas
             </Link>
+            {/* Link de Aprovações - apenas para RH e ADMIN */}
+            {isHydrated && !loading && (user?.role === "RH" || user?.role === "ADMIN") && (
+              <Link
+                href="/approvals"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Aprovações
+              </Link>
+            )}
           </nav>
         </div>
         

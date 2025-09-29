@@ -18,7 +18,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MeetingsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, user, isHydrated } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,7 @@ export default function MeetingsPage() {
     description: "",
     startTime: "",
     endTime: "",
+    duration: 30, // Duração padrão de 30 minutos
     roomId: ""
   });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -40,13 +41,23 @@ export default function MeetingsPage() {
   today.setHours(0, 0, 0, 0);
 
   useEffect(() => {
+    // Aguardar o carregamento do contexto de autenticação E a hidratação
+    if (authLoading || !isHydrated) {
+      return;
+    }
+
     if (!isAuthenticated) {
       router.push("/login");
       return;
     }
+
+    // Aguardar o carregamento do usuário
+    if (!user) {
+      return;
+    }
     
     loadData();
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, isHydrated, user, router]);
 
   const loadData = async () => {
     try {
@@ -70,20 +81,46 @@ export default function MeetingsPage() {
     }
   };
 
-  // Horários disponíveis (de 8h às 18h, blocos de 1 hora)
+  // Horários disponíveis (de 8h às 18h, blocos de 30 minutos)
   const availableTimeSlots = [
-    "08:00", "09:00", "10:00", "11:00", "12:00", "13:00",
-    "14:00", "15:00", "16:00", "17:00"
+    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+    "16:00", "16:30", "17:00", "17:30"
   ];
+
+  const calculateEndTime = (startTime: string, duration: number): string => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    const endHours = Math.floor(endMinutes / 60);
+    const endMins = endMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}:00`;
+  };
 
   const handleTimeChange = (time: string) => {
     setSelectedTime(time);
     if (selectedDate && time) {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const startDateTime = `${dateStr}T${time}:00`;
-      const endDateTime = `${dateStr}T${String(parseInt(time.split(':')[0]) + 1).padStart(2, '0')}:00:00`;
+      const endDateTime = `${dateStr}T${calculateEndTime(time, formData.duration)}`;
       setFormData({
         ...formData,
+        startTime: startDateTime,
+        endTime: endDateTime
+      });
+    }
+  };
+
+  const handleDurationChange = (duration: number) => {
+    setFormData({ ...formData, duration });
+    // Recalcular endTime se já temos data e horário selecionados
+    if (selectedDate && selectedTime) {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const startDateTime = `${dateStr}T${selectedTime}:00`;
+      const endDateTime = `${dateStr}T${calculateEndTime(selectedTime, duration)}`;
+      setFormData({
+        ...formData,
+        duration,
         startTime: startDateTime,
         endTime: endDateTime
       });
@@ -95,7 +132,7 @@ export default function MeetingsPage() {
     if (date && selectedTime) {
       const dateStr = format(date, 'yyyy-MM-dd');
       const startDateTime = `${dateStr}T${selectedTime}:00`;
-      const endDateTime = `${dateStr}T${String(parseInt(selectedTime.split(':')[0]) + 1).padStart(2, '0')}:00:00`;
+      const endDateTime = `${dateStr}T${calculateEndTime(selectedTime, formData.duration)}`;
       setFormData({
         ...formData,
         startTime: startDateTime,
@@ -119,7 +156,8 @@ export default function MeetingsPage() {
     const now = new Date();
     const hasActiveBooking = meetings.some(meeting => {
       const meetingDate = new Date(meeting.startTime);
-      return meetingDate > now;
+      // Apenas considerar reuniões aprovadas ou pendentes como "em aberto"
+      return meetingDate > now && (meeting.status === 'APPROVED' || meeting.status === 'PENDING');
     });
 
     if (hasActiveBooking) {
@@ -137,6 +175,7 @@ export default function MeetingsPage() {
           description: "",
           startTime: "",
           endTime: "",
+          duration: 30,
           roomId: ""
         });
         setSelectedDate(undefined);
@@ -251,7 +290,7 @@ export default function MeetingsPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   {/* calendario */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Data</Label>
@@ -279,8 +318,24 @@ export default function MeetingsPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="time" className="text-sm font-medium">Horário (1 hora de duração)</Label>
+                    <Label htmlFor="duration" className="text-sm font-medium">Duração</Label>
+                    <select
+                      id="duration"
+                      value={formData.duration}
+                      onChange={(e) => handleDurationChange(Number(e.target.value))}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      required
+                    >
+                      <option value={30}>30 minutos</option>
+                      <option value={60}>1 hora</option>
+                      <option value={120}>2 horas</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="time" className="text-sm font-medium">Horário de Início</Label>
                     <select
                       id="time"
                       value={selectedTime}
@@ -290,10 +345,10 @@ export default function MeetingsPage() {
                     >
                       <option value="">Selecione um horário</option>
                       {availableTimeSlots.map((time) => {
-                        const endTime = String(parseInt(time.split(':')[0]) + 1).padStart(2, '0') + ':00';
+                        const endTime = calculateEndTime(time, formData.duration);
                         return (
                           <option key={time} value={time}>
-                            {time} às {endTime}
+                            {time} às {endTime.substring(0, 5)}
                           </option>
                         );
                       })}
@@ -304,7 +359,10 @@ export default function MeetingsPage() {
                 {selectedDate && selectedTime && (
                   <div className="p-4 bg-muted rounded-md border">
                     <p className="text-sm font-medium">
-                      <strong>Reserva:</strong> {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })} das {selectedTime} às {String(parseInt(selectedTime.split(':')[0]) + 1).padStart(2, '0')}:00
+                      <strong>Reserva:</strong> {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })} das {selectedTime} às {calculateEndTime(selectedTime, formData.duration).substring(0, 5)}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Duração: {formData.duration === 30 ? '30 minutos' : formData.duration === 60 ? '1 hora' : '2 horas'}
                     </p>
                   </div>
                 )}
@@ -351,6 +409,28 @@ export default function MeetingsPage() {
                           <strong className="min-w-0">Fim:</strong> 
                           <span className="break-all">{new Date(meeting.endTime).toLocaleString('pt-BR')}</span>
                         </p>
+                        {meeting.duration && (
+                          <p className="flex flex-col sm:flex-row sm:gap-2">
+                            <strong className="min-w-0">Duração:</strong> 
+                            <span className="break-words">
+                              {meeting.duration === 30 ? '30 minutos' : meeting.duration === 60 ? '1 hora' : meeting.duration === 120 ? '2 horas' : `${meeting.duration} minutos`}
+                            </span>
+                          </p>
+                        )}
+                        {meeting.status && (
+                          <p className="flex flex-col sm:flex-row sm:gap-2">
+                            <strong className="min-w-0">Status:</strong> 
+                            <span className={`break-words ${
+                              meeting.status === 'APPROVED' ? 'text-green-600' : 
+                              meeting.status === 'PENDING' ? 'text-yellow-600' : 
+                              'text-red-600'
+                            }`}>
+                              {meeting.status === 'APPROVED' ? 'Aprovada' : 
+                               meeting.status === 'PENDING' ? 'Pendente' : 
+                               'Rejeitada'}
+                            </span>
+                          </p>
+                        )}
                         {meeting.room && (
                           <p className="flex flex-col sm:flex-row sm:gap-2">
                             <strong className="min-w-0">Sala:</strong> 
